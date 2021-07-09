@@ -1,0 +1,93 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class HRMSDashboard extends Api_Controller
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+
+    public function getDepartments()
+    {
+        $data = $this->db->select("department")
+            ->where("department!=", null)
+            ->where("department!=", '')
+            ->group_by("department")
+            ->get("MAN_MOB_GROUP_NAME")
+            ->result_array();
+
+        $result = array();
+        foreach ($data as $item) $result[] = $item["department"];
+        $this->SuccessResponse($result);
+    }
+
+    public function getDashboardData()
+    {
+        $department = $this->input->post('department');
+        $startDate = $this->input->post('start_date');
+        $endDate = $this->input->post('end_date');
+
+        $query = $this->db->select("A.*")
+            ->from("MAN_MOB_HRMS_ATTENDANCE as A")
+            ->join("MAN_MOB_GROUP_NAME as B", "A.EMPLOYEE_ID=B.EMPLOYEE_ID")
+            ->where("A.Scan_Date>=", $startDate)
+            ->where("A.Scan_Date<=", $endDate);
+
+        if (isset($department) && $department != "") {
+            $query = $query->where("B.department", $department);
+        }
+        $data = $query ->group_by("A.EMPLOYEE_ID")
+            ->get()->result_array();
+        $this->SuccessResponse($data);
+    }
+
+    public function getDashboardReportData()
+    {
+        $employeeID = $this->input->post('EMPLOYEE_ID');
+        $department = $this->input->post('department');
+        $startDate = $this->input->post('start_date');
+        $endDate = $this->input->post('end_date');
+		// $endDate = date('Y-m-d', strtotime('today'));
+		// $startDate = date('Y-m-d', strtotime('-7 days'));
+
+		$reporting = $this->db->select("Reporting")
+			->from("MAN_MOB_GROUP_NAME")
+			->where("EMPLOYEE_ID=", $employeeID)
+			->where("GROUP_NAME=", "HUMAN RESOURCE")
+			->get()
+            ->row_array();
+
+		$reporting = $reporting['Reporting'];
+		$query = $this->db->select("A.*")
+			->from("MAN_MOB_HRMS_ATTENDANCE_REPORT as A")
+			->join("MAN_MOB_GROUP_NAME as B", "A.EMPLOYEE_ID=B.EMPLOYEE_ID")
+			->where("FIND_IN_SET(A.EMPLOYEE_ID, '$reporting')")
+			->where("A.Scan_Date>=", $startDate)
+			->where("A.Scan_Date<=", $endDate);
+
+		if (isset($department) && $department != "") {
+			$query = $query->where("B.department", $department);
+		}
+		$data = $query ->group_by("A.EMPLOYEE_ID")
+			->get()->result_array();
+
+		$result = array();
+		foreach ($data as $item) {
+			$query = $this->db->select("A.*")
+				->from("MAN_MOB_HRMS_ATTENDANCE_REPORT as A")
+				->join("MAN_MOB_GROUP_NAME as B", "A.EMPLOYEE_ID=B.EMPLOYEE_ID")
+				->where("FIND_IN_SET(A.EMPLOYEE_ID, '$reporting')")
+				->where("A.Scan_Date>=", $startDate)
+				->where("A.Scan_Date<=", $endDate)
+				->where("A.EMPLOYEE_ID=", $item[EMPLOYEE_ID]);
+			$data = $query->get()->result_array();
+			$result[] = $data;
+		}
+
+        // $this->SuccessResponse($data);
+        $this->SuccessResponse($result);
+    }
+
+}
